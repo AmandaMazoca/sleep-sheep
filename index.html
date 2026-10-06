@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6,7 +6,7 @@
     <title>Relaxing Sheep Counter</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Quicksand for a soft, comforting aesthetic -->
+    <!-- Google Fonts: Quicksand for soft aesthetic -->
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -74,7 +74,7 @@
     <!-- Star Container -->
     <div id="stars-container" class="absolute inset-0 z-0 pointer-events-none"></div>
 
-    <!-- Moon & Clouds -->
+    <!-- Moon & Ambient Glow -->
     <div class="absolute top-8 right-8 md:top-12 md:right-16 z-0 flex items-center justify-center pointer-events-none">
         <div class="moon w-20 h-20 md:w-28 md:h-28 bg-amber-100 rounded-full relative flex items-center justify-center">
             <div class="absolute w-5 h-5 bg-amber-200/40 rounded-full top-3 left-4"></div>
@@ -97,7 +97,7 @@
             </div>
         </div>
 
-        <!-- Controls (Sound & Info) -->
+        <!-- Controls -->
         <div class="pointer-events-auto flex items-center gap-3">
             <button id="sound-btn" class="w-12 h-12 bg-slate-900/70 backdrop-blur-md border border-indigo-500/30 hover:border-indigo-400 rounded-2xl flex items-center justify-center text-indigo-200 hover:text-white transition-all shadow-xl active:scale-95" title="Toggle Sound">
                 <i id="sound-icon" class="fa-solid fa-volume-high text-lg"></i>
@@ -174,19 +174,15 @@
             <ul class="space-y-3 text-sm text-indigo-200/90 mb-6">
                 <li class="flex items-start gap-3">
                     <span class="bg-indigo-600/30 text-indigo-300 w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">1</span>
-                    <span>The fluffy sheep will walk peacefully across the green pasture towards the wooden fence.</span>
+                    <span>The fluffy sheep walks peacefully across the green pasture towards the fence.</span>
                 </li>
                 <li class="flex items-start gap-3">
                     <span class="bg-indigo-600/30 text-indigo-300 w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">2</span>
-                    <span>Tap or click anywhere when the sheep approaches the fence to trigger a gentle jump.</span>
+                    <span>Tap or click anywhere when the sheep approaches the fence to trigger a soft jump.</span>
                 </li>
                 <li class="flex items-start gap-3">
                     <span class="bg-indigo-600/30 text-indigo-300 w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">3</span>
-                    <span>Each successful jump adds +1 to your counter.</span>
-                </li>
-                <li class="flex items-start gap-3">
-                    <span class="bg-indigo-600/30 text-indigo-300 w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">4</span>
-                    <span>If you forget to jump or trip on the fence, you can softly start over.</span>
+                    <span>Each successful jump adds +1 to your sheep count.</span>
                 </li>
             </ul>
             <button id="close-info-btn-2" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all">
@@ -336,6 +332,8 @@
         const fenceWidth = 24;
         const fenceHeight = 65;
 
+        let sheep = null;
+
         function resizeCanvas() {
             canvasWidth = gameArea.clientWidth;
             canvasHeight = gameArea.clientHeight;
@@ -344,12 +342,12 @@
 
             groundY = canvasHeight * 0.75;
             fenceX = canvasWidth * 0.5;
-        }
 
-        window.addEventListener('resize', () => {
-            resizeCanvas();
-            createBackgroundStars();
-        });
+            // Ensure sheep updates ground anchor immediately if instantiated
+            if (sheep) {
+                sheep.updateGroundPosition();
+            }
+        }
 
         let score = 0;
         let gameStarted = false;
@@ -361,16 +359,29 @@
                 this.reset();
             }
 
-            reset() {
-                // Guaranteed to start completely outside the visible screen frame on the left
-                this.x = -this.width - 60;
+            updateGroundPosition() {
                 this.baseY = groundY - this.height + 6;
+                // Keep sheep aligned to ground if not jumping
+                if (!this.isJumping) {
+                    this.y = this.baseY;
+                }
+            }
+
+            reset() {
+                this.width = 54;
+                this.height = 38;
+                
+                // Spawn completely offscreen left
+                this.x = -this.width - 60;
+                
+                // Calculate correct vertical position anchored to the green grass level
+                this.baseY = groundY ? (groundY - this.height + 6) : 0;
                 this.y = this.baseY;
                 
                 this.speed = 2.0; 
                 this.vx = this.speed;
                 this.vy = 0;
-                this.gravity = 0.32; // Floaty, high jump curve
+                this.gravity = 0.32; // Floaty high jump
                 
                 this.isJumping = false;
                 this.hasJumped = false;
@@ -387,7 +398,7 @@
                 if (!this.isJumping && !this.tripped) {
                     this.isJumping = true;
                     this.hasJumped = true;
-                    this.vy = -10.5; // High jump clearing the fence comfortably
+                    this.vy = -10.5; // High jump parabola
                     soundSystem.playJump();
                 }
             }
@@ -449,7 +460,7 @@
                     ctx.translate(-cx, -cy);
                 }
 
-                // Shadow
+                // Ground Shadow
                 ctx.beginPath();
                 ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
                 const shadowWidth = this.isJumping ? this.width * 0.7 : this.width * 0.9;
@@ -474,7 +485,7 @@
                 ctx.lineTo(this.x + 44 + legOffset, this.y + 36);
                 ctx.stroke();
 
-                // Fluffy Cloud Body
+                // Fluffy Body
                 ctx.fillStyle = '#f8fafc';
                 ctx.beginPath();
                 ctx.arc(this.x + 18, this.y + 18, 12, 0, Math.PI * 2);
@@ -484,7 +495,7 @@
                 ctx.arc(this.x + 20, this.y + 22, 10, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Fluff highlight
+                // Fluff depth
                 ctx.fillStyle = '#e2e8f0';
                 ctx.beginPath();
                 ctx.arc(this.x + 28, this.y + 24, 11, 0, Math.PI * 2);
@@ -524,8 +535,6 @@
                 ctx.restore();
             }
         }
-
-        const sheep = new Sheep();
 
         function addZzzParticle(x, y) {
             const zzz = document.createElement('div');
@@ -603,7 +612,7 @@
             ctx.ellipse(fX + fenceWidth / 2, groundY + 12, fenceWidth * 0.9, 5, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // Fence Posts
+            // Posts
             ctx.fillStyle = '#78350f';
             ctx.strokeStyle = '#451a03';
             ctx.lineWidth = 1.5;
@@ -614,7 +623,7 @@
             ctx.fillRect(fX + fenceWidth - 8, fY, 8, fenceHeight);
             ctx.strokeRect(fX + fenceWidth - 8, fY, 8, fenceHeight);
 
-            // Horizontal Rails
+            // Rails
             ctx.fillStyle = '#92400e';
             ctx.fillRect(fX - 4, fY + 12, fenceWidth + 8, 8);
             ctx.strokeRect(fX - 4, fY + 12, fenceWidth + 8, 8);
@@ -622,13 +631,13 @@
             ctx.fillRect(fX - 4, fY + 34, fenceWidth + 8, 8);
             ctx.strokeRect(fX - 4, fY + 34, fenceWidth + 8, 8);
 
-            // Moonlight highlight on fence
+            // Highlight
             ctx.fillStyle = 'rgba(254, 240, 138, 0.15)';
             ctx.fillRect(fX - 4, fY + 12, fenceWidth + 8, 2);
         }
 
         function checkCollision() {
-            if (!gameStarted) return;
+            if (!gameStarted || !sheep) return;
 
             const sheepFront = sheep.x + sheep.width;
             const sheepBack = sheep.x;
@@ -674,25 +683,27 @@
 
         function gameLoop() {
             drawEnvironment();
-            sheep.update();
-            sheep.draw();
+            if (sheep) {
+                sheep.update();
+                sheep.draw();
 
-            if (!sheep.tripped) {
-                checkCollision();
+                if (!sheep.tripped) {
+                    checkCollision();
+                }
             }
 
             requestAnimationFrame(gameLoop);
         }
 
         function handleUserAction(e) {
-            if (!gameStarted) return;
+            if (!gameStarted || !sheep) return;
             if (e && e.target.closest('button')) return;
 
             soundSystem.init();
 
             if (!sheep.tripped) {
                 const sheepFront = sheep.x + sheep.width;
-                const jumpZoneStart = fenceX - 260; 
+                const jumpZoneStart = fenceX - 260; // Very generous jump window
 
                 if (!sheep.isJumping && sheepFront >= jumpZoneStart) {
                     sheep.jump();
@@ -713,7 +724,9 @@
         function restartGame() {
             score = 0;
             document.getElementById('sheep-counter').innerText = '0';
-            sheep.reset();
+            if (sheep) {
+                sheep.reset();
+            }
 
             const modal = document.getElementById('game-over-modal');
             modal.classList.add('opacity-0', 'pointer-events-none');
@@ -724,8 +737,14 @@
         }
 
         window.onload = () => {
+            // First measure canvas to establish groundY
             resizeCanvas();
             createBackgroundStars();
+
+            // Instantiate sheep AFTER groundY is established
+            sheep = new Sheep();
+
+            // Start game loop
             gameLoop();
 
             // Start Welcome Button
