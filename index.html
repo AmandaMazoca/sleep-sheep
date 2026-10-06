@@ -1,0 +1,784 @@
+!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relaxing Sheep Counter</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Quicksand for a soft, comforting aesthetic -->
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        * {
+            font-family: 'Quicksand', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.25; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.25); }
+        }
+
+        @keyframes moonGlow {
+            0%, 100% { box-shadow: 0 0 25px rgba(254, 240, 138, 0.4); }
+            50% { box-shadow: 0 0 45px rgba(254, 240, 138, 0.75); }
+        }
+
+        @keyframes floatZZZ {
+            0% { opacity: 0; transform: translate(0, 0) scale(0.6) rotate(-10deg); }
+            50% { opacity: 0.9; }
+            100% { opacity: 0; transform: translate(30px, -80px) scale(1.3) rotate(15deg); }
+        }
+
+        @keyframes floatStar {
+            0% { opacity: 1; transform: translate(0, 0) scale(1); }
+            100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+        }
+
+        .star {
+            position: absolute;
+            background-color: white;
+            border-radius: 50%;
+            animation: twinkle var(--duration) infinite ease-in-out;
+            animation-delay: var(--delay);
+        }
+
+        .moon {
+            animation: moonGlow 4s infinite ease-in-out;
+        }
+
+        .zzz-particle {
+            position: absolute;
+            color: #e0e7ff;
+            font-weight: bold;
+            pointer-events: none;
+            animation: floatZZZ 2.5s forwards cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .star-particle {
+            position: absolute;
+            pointer-events: none;
+            animation: floatStar 1s forwards cubic-bezier(0, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen w-screen overflow-hidden select-none flex flex-col justify-between relative">
+
+    <!-- Background Gradient -->
+    <div class="absolute inset-0 bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900 z-0"></div>
+
+    <!-- Star Container -->
+    <div id="stars-container" class="absolute inset-0 z-0 pointer-events-none"></div>
+
+    <!-- Moon & Clouds -->
+    <div class="absolute top-8 right-8 md:top-12 md:right-16 z-0 flex items-center justify-center pointer-events-none">
+        <div class="moon w-20 h-20 md:w-28 md:h-28 bg-amber-100 rounded-full relative flex items-center justify-center">
+            <div class="absolute w-5 h-5 bg-amber-200/40 rounded-full top-3 left-4"></div>
+            <div class="absolute w-7 h-7 bg-amber-200/40 rounded-full bottom-4 right-5"></div>
+            <div class="absolute w-3 h-3 bg-amber-200/40 rounded-full top-8 right-3"></div>
+        </div>
+        <div class="absolute -bottom-2 -left-6 opacity-40 bg-indigo-300 blur-sm w-32 h-10 rounded-full"></div>
+    </div>
+
+    <!-- Top HUD -->
+    <header class="relative z-20 p-4 md:p-6 flex justify-between items-start w-full max-w-6xl mx-auto pointer-events-none">
+        <!-- Sheep Counter (Top-Left) -->
+        <div class="pointer-events-auto bg-slate-900/70 backdrop-blur-md border border-indigo-500/30 rounded-2xl p-4 shadow-xl flex items-center gap-4 transition-all duration-300 hover:border-indigo-400/50">
+            <div class="w-12 h-12 rounded-xl bg-indigo-600/30 border border-indigo-400/40 flex items-center justify-center text-2xl text-indigo-200">
+                <i class="fa-solid fa-cloud-moon"></i>
+            </div>
+            <div>
+                <span class="text-xs uppercase tracking-widest text-indigo-300 font-semibold block">Sheep Counted</span>
+                <span id="sheep-counter" class="text-3xl md:text-4xl font-bold text-white tracking-wider">0</span>
+            </div>
+        </div>
+
+        <!-- Controls (Sound & Info) -->
+        <div class="pointer-events-auto flex items-center gap-3">
+            <button id="sound-btn" class="w-12 h-12 bg-slate-900/70 backdrop-blur-md border border-indigo-500/30 hover:border-indigo-400 rounded-2xl flex items-center justify-center text-indigo-200 hover:text-white transition-all shadow-xl active:scale-95" title="Toggle Sound">
+                <i id="sound-icon" class="fa-solid fa-volume-high text-lg"></i>
+            </button>
+            <button id="info-btn" class="w-12 h-12 bg-slate-900/70 backdrop-blur-md border border-indigo-500/30 hover:border-indigo-400 rounded-2xl flex items-center justify-center text-indigo-200 hover:text-white transition-all shadow-xl active:scale-95" title="How to Play">
+                <i class="fa-solid fa-circle-info text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Tap Hint -->
+    <div id="instruction-hint" class="relative z-10 text-center text-indigo-200/70 text-sm md:text-base font-medium transition-opacity duration-700 my-auto pointer-events-none">
+        <p class="animate-pulse">Click or tap anywhere to help the sheep jump over the fence <i class="fa-solid fa-hand-pointer ml-1"></i></p>
+    </div>
+
+    <!-- Game Canvas Area -->
+    <div class="relative w-full h-[60vh] max-h-[600px] mt-auto z-10 overflow-hidden cursor-pointer" id="game-area">
+        <canvas id="gameCanvas" class="absolute inset-0 w-full h-full"></canvas>
+    </div>
+
+    <!-- Welcome Start Modal -->
+    <div id="welcome-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md transition-opacity duration-500 p-4">
+        <div class="bg-slate-900/95 border border-indigo-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full text-center shadow-2xl">
+            <div class="w-20 h-20 bg-indigo-500/20 border border-indigo-400/30 rounded-full flex items-center justify-center mx-auto mb-5 text-3xl text-indigo-300">
+                <i class="fa-solid fa-moon"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-slate-100 mb-3">Sleepy Night</h1>
+            <p class="text-indigo-200/90 text-base md:text-lg mb-8 leading-relaxed font-medium">
+                "Welcome, lower your screen brightness and relax."
+            </p>
+
+            <button id="start-btn" class="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-lg font-semibold rounded-2xl shadow-lg transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-3">
+                <i class="fa-solid fa-play"></i>
+                Begin Relaxing
+            </button>
+        </div>
+    </div>
+
+    <!-- Try Again / Fail Modal -->
+    <div id="game-over-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-500 p-4">
+        <div class="bg-slate-900/90 border border-indigo-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full text-center shadow-2xl transform scale-95 transition-transform duration-500 id-modal-content">
+            <div class="w-20 h-20 bg-indigo-500/20 border border-indigo-400/30 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl text-indigo-300">
+                <i class="fa-solid fa-bed"></i>
+            </div>
+            <h2 class="text-xl md:text-2xl font-bold text-slate-100 mb-2">Good Night...</h2>
+            <p class="text-indigo-200/90 text-sm md:text-base mb-6 leading-relaxed">
+                "Looks like you are almost falling asleep, try again."
+            </p>
+            
+            <div class="bg-indigo-950/50 rounded-2xl p-4 mb-6 border border-indigo-800/40">
+                <span class="text-xs text-indigo-300 uppercase tracking-wider block mb-1">Final Score</span>
+                <span id="final-score" class="text-3xl font-bold text-amber-300">0</span>
+                <span class="text-xs text-indigo-300/70 block mt-1">sheep counted</span>
+            </div>
+
+            <button id="restart-btn" class="w-full py-3.5 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold rounded-2xl shadow-lg transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-rotate-right"></i>
+                Try Again
+            </button>
+        </div>
+    </div>
+
+    <!-- How to Play Modal -->
+    <div id="info-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300 p-4">
+        <div class="bg-slate-900/95 border border-indigo-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full text-left shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-moon text-indigo-400"></i> How to Play
+                </h3>
+                <button id="close-info-btn" class="text-slate-400 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <ul class="space-y-3 text-sm text-indigo-200/90 mb-6">
+                <li class="flex items-start gap-3">
+                    <span class="bg-indigo-600/30 text-indigo-300 w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">1</span>
+                    <span>The fluffy sheep will walk peacefully across the green pasture towards the wooden fence.</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <span class="bg-indigo-600/30 text-indigo-300 w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">2</span>
+                    <span>Tap or click anywhere when the sheep approaches the fence to trigger a gentle jump.</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <span class="bg-indigo-600/30 text-indigo-300 w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">3</span>
+                    <span>Each successful jump adds +1 to your counter.</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <span class="bg-indigo-600/30 text-indigo-300 w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">4</span>
+                    <span>If you forget to jump or trip on the fence, you can softly start over.</span>
+                </li>
+            </ul>
+            <button id="close-info-btn-2" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all">
+                Got it, rest well!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        class SoundSystem {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playJump() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(440, this.ctx.currentTime + 0.28);
+
+                    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.3);
+                } catch(e) {}
+            }
+
+            playSuccess() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, this.ctx.currentTime);
+                    osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.12);
+
+                    gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.45);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.45);
+                } catch(e) {}
+            }
+
+            playBaa() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(280, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(260, this.ctx.currentTime + 0.15);
+                    osc.frequency.linearRampToValueAtTime(270, this.ctx.currentTime + 0.3);
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(800, this.ctx.currentTime);
+
+                    gain.gain.setValueAtTime(0.07, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
+
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.35);
+                } catch(e) {}
+            }
+
+            playFail() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.4);
+
+                    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.4);
+                } catch(e) {}
+            }
+        }
+
+        const soundSystem = new SoundSystem();
+
+        function createBackgroundStars() {
+            const container = document.getElementById('stars-container');
+            const count = Math.floor((window.innerWidth * window.innerHeight) / 3200);
+            container.innerHTML = '';
+
+            for (let i = 0; i < count; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                const size = Math.random() * 2.5 + 1;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 70}%`;
+                star.style.setProperty('--duration', `${Math.random() * 3 + 2}s`);
+                star.style.setProperty('--delay', `${Math.random() * 3}s`);
+                star.style.opacity = Math.random() * 0.7 + 0.3;
+                container.appendChild(star);
+            }
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameArea = document.getElementById('game-area');
+
+        let canvasWidth = 0;
+        let canvasHeight = 0;
+        let groundY = 0;
+        let fenceX = 0;
+        const fenceWidth = 24;
+        const fenceHeight = 65;
+
+        function resizeCanvas() {
+            canvasWidth = gameArea.clientWidth;
+            canvasHeight = gameArea.clientHeight;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+
+            groundY = canvasHeight * 0.75;
+            fenceX = canvasWidth * 0.5;
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            createBackgroundStars();
+        });
+
+        let score = 0;
+        let gameStarted = false;
+
+        class Sheep {
+            constructor() {
+                this.width = 54;
+                this.height = 38;
+                this.reset();
+            }
+
+            reset() {
+                // Guaranteed to start completely outside the visible screen frame on the left
+                this.x = -this.width - 60;
+                this.baseY = groundY - this.height + 6;
+                this.y = this.baseY;
+                
+                this.speed = 2.0; 
+                this.vx = this.speed;
+                this.vy = 0;
+                this.gravity = 0.32; // Floaty, high jump curve
+                
+                this.isJumping = false;
+                this.hasJumped = false;
+                this.hasScored = false;
+                this.tripped = false;
+
+                this.legAngle = 0;
+                this.legSpeed = 0.2;
+                this.eyeClosed = false;
+                this.blinkTimer = 0;
+            }
+
+            jump() {
+                if (!this.isJumping && !this.tripped) {
+                    this.isJumping = true;
+                    this.hasJumped = true;
+                    this.vy = -10.5; // High jump clearing the fence comfortably
+                    soundSystem.playJump();
+                }
+            }
+
+            update() {
+                if (!gameStarted) return;
+
+                this.legAngle += this.legSpeed;
+
+                this.blinkTimer++;
+                if (this.blinkTimer > 180) {
+                    this.eyeClosed = true;
+                    if (this.blinkTimer > 195) {
+                        this.eyeClosed = false;
+                        this.blinkTimer = 0;
+                    }
+                }
+
+                if (!this.tripped) {
+                    this.x += this.vx;
+
+                    if (this.isJumping) {
+                        this.y += this.vy;
+                        this.vy += this.gravity;
+
+                        if (Math.random() < 0.25) {
+                            addStarParticle(this.x + this.width / 2, this.y + 10);
+                        }
+
+                        if (this.y >= this.baseY) {
+                            this.y = this.baseY;
+                            this.isJumping = false;
+                            this.vy = 0;
+
+                            if (this.x > fenceX) {
+                                soundSystem.playSuccess();
+                                addZzzParticle(this.x + this.width / 2, this.y - 10);
+                            }
+                        }
+                    }
+                } else {
+                    if (this.y < this.baseY) {
+                        this.y += this.vy;
+                        this.vy += this.gravity;
+                        if (this.y > this.baseY) this.y = this.baseY;
+                    }
+                }
+            }
+
+            draw() {
+                ctx.save();
+
+                const cx = this.x + this.width / 2;
+                const cy = this.y + this.height / 2;
+
+                if (this.tripped) {
+                    ctx.translate(cx, cy);
+                    ctx.rotate(0.3);
+                    ctx.translate(-cx, -cy);
+                }
+
+                // Shadow
+                ctx.beginPath();
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+                const shadowWidth = this.isJumping ? this.width * 0.7 : this.width * 0.9;
+                ctx.ellipse(cx, groundY + 2, shadowWidth / 2, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Legs
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 3.5;
+                ctx.lineCap = 'round';
+
+                const legOffset = Math.sin(this.legAngle) * (this.isJumping ? 2 : 6);
+
+                ctx.beginPath();
+                ctx.moveTo(this.x + 14, this.y + 26);
+                ctx.lineTo(this.x + 14 - legOffset, this.y + 36);
+                ctx.moveTo(this.x + 22, this.y + 26);
+                ctx.lineTo(this.x + 22 + legOffset, this.y + 36);
+                ctx.moveTo(this.x + 36, this.y + 26);
+                ctx.lineTo(this.x + 36 - legOffset, this.y + 36);
+                ctx.moveTo(this.x + 44, this.y + 26);
+                ctx.lineTo(this.x + 44 + legOffset, this.y + 36);
+                ctx.stroke();
+
+                // Fluffy Cloud Body
+                ctx.fillStyle = '#f8fafc';
+                ctx.beginPath();
+                ctx.arc(this.x + 18, this.y + 18, 12, 0, Math.PI * 2);
+                ctx.arc(this.x + 28, this.y + 14, 14, 0, Math.PI * 2);
+                ctx.arc(this.x + 38, this.y + 18, 12, 0, Math.PI * 2);
+                ctx.arc(this.x + 28, this.y + 24, 12, 0, Math.PI * 2);
+                ctx.arc(this.x + 20, this.y + 22, 10, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Fluff highlight
+                ctx.fillStyle = '#e2e8f0';
+                ctx.beginPath();
+                ctx.arc(this.x + 28, this.y + 24, 11, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Head
+                ctx.fillStyle = '#475569';
+                ctx.beginPath();
+                ctx.ellipse(this.x + 44, this.y + 16, 8, 10, Math.PI / 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Ear
+                ctx.beginPath();
+                ctx.ellipse(this.x + 40, this.y + 12, 3, 6, -Math.PI / 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Eye
+                ctx.fillStyle = '#ffffff';
+                if (this.eyeClosed || this.tripped) {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.arc(this.x + 46, this.y + 15, 2.5, 0, Math.PI);
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(this.x + 46, this.y + 14, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Cheek
+                ctx.fillStyle = 'rgba(251, 113, 133, 0.4)';
+                ctx.beginPath();
+                ctx.arc(this.x + 45, this.y + 19, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        const sheep = new Sheep();
+
+        function addZzzParticle(x, y) {
+            const zzz = document.createElement('div');
+            zzz.className = 'zzz-particle';
+            zzz.innerText = 'zZz...';
+            zzz.style.left = `${x}px`;
+            zzz.style.top = `${y + gameArea.offsetTop}px`;
+            document.body.appendChild(zzz);
+
+            setTimeout(() => zzz.remove(), 2500);
+        }
+
+        function addStarParticle(x, y) {
+            const star = document.createElement('div');
+            star.className = 'star-particle text-amber-200 text-xs';
+            star.innerHTML = '<i class="fa-solid fa-sparkles"></i>';
+            star.style.left = `${x}px`;
+            star.style.top = `${y}px`;
+            
+            const dx = (Math.random() - 0.5) * 40;
+            const dy = (Math.random() - 0.5) * 40;
+            star.style.setProperty('--dx', `${dx}px`);
+            star.style.setProperty('--dy', `${dy}px`);
+
+            gameArea.appendChild(star);
+            setTimeout(() => star.remove(), 1000);
+        }
+
+        function drawEnvironment() {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+            // Night Pasture - Background Hill
+            ctx.fillStyle = '#064e3b';
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            ctx.quadraticCurveTo(canvasWidth * 0.3, groundY - 25, canvasWidth * 0.6, groundY - 5);
+            ctx.quadraticCurveTo(canvasWidth * 0.85, groundY + 15, canvasWidth, groundY - 15);
+            ctx.lineTo(canvasWidth, canvasHeight);
+            ctx.lineTo(0, canvasHeight);
+            ctx.fill();
+
+            // Main Hill
+            const grassGradient = ctx.createLinearGradient(0, groundY - 10, 0, canvasHeight);
+            grassGradient.addColorStop(0, '#047857');
+            grassGradient.addColorStop(1, '#022c22');
+
+            ctx.fillStyle = grassGradient;
+            ctx.beginPath();
+            ctx.moveTo(0, groundY + 10);
+            ctx.quadraticCurveTo(canvasWidth * 0.4, groundY - 10, canvasWidth, groundY + 5);
+            ctx.lineTo(canvasWidth, canvasHeight);
+            ctx.lineTo(0, canvasHeight);
+            ctx.fill();
+
+            // Grass tufts
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 2;
+            for (let i = 20; i < canvasWidth; i += 60) {
+                const gy = groundY + Math.sin(i) * 5 + 12;
+                ctx.beginPath();
+                ctx.moveTo(i, gy);
+                ctx.lineTo(i - 3, gy - 6);
+                ctx.moveTo(i, gy);
+                ctx.lineTo(i + 3, gy - 8);
+                ctx.stroke();
+            }
+
+            // Wooden Fence
+            const fX = fenceX;
+            const fY = groundY - fenceHeight + 15;
+
+            // Shadow
+            ctx.fillStyle = 'rgba(2, 44, 34, 0.5)';
+            ctx.beginPath();
+            ctx.ellipse(fX + fenceWidth / 2, groundY + 12, fenceWidth * 0.9, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Fence Posts
+            ctx.fillStyle = '#78350f';
+            ctx.strokeStyle = '#451a03';
+            ctx.lineWidth = 1.5;
+
+            ctx.fillRect(fX, fY, 8, fenceHeight);
+            ctx.strokeRect(fX, fY, 8, fenceHeight);
+
+            ctx.fillRect(fX + fenceWidth - 8, fY, 8, fenceHeight);
+            ctx.strokeRect(fX + fenceWidth - 8, fY, 8, fenceHeight);
+
+            // Horizontal Rails
+            ctx.fillStyle = '#92400e';
+            ctx.fillRect(fX - 4, fY + 12, fenceWidth + 8, 8);
+            ctx.strokeRect(fX - 4, fY + 12, fenceWidth + 8, 8);
+            
+            ctx.fillRect(fX - 4, fY + 34, fenceWidth + 8, 8);
+            ctx.strokeRect(fX - 4, fY + 34, fenceWidth + 8, 8);
+
+            // Moonlight highlight on fence
+            ctx.fillStyle = 'rgba(254, 240, 138, 0.15)';
+            ctx.fillRect(fX - 4, fY + 12, fenceWidth + 8, 2);
+        }
+
+        function checkCollision() {
+            if (!gameStarted) return;
+
+            const sheepFront = sheep.x + sheep.width;
+            const sheepBack = sheep.x;
+
+            // Missed jump collision check
+            if (!sheep.isJumping && sheepFront >= fenceX + 5 && sheepBack <= fenceX + fenceWidth - 5) {
+                triggerGameOver();
+                return;
+            }
+
+            // Successfully cleared fence
+            if (sheep.isJumping && sheepBack > fenceX && !sheep.hasScored) {
+                sheep.hasScored = true;
+                score++;
+                document.getElementById('sheep-counter').innerText = score;
+            }
+
+            // Respawn offscreen on right exit
+            if (sheep.x > canvasWidth + 20) {
+                if (Math.random() < 0.4) {
+                    soundSystem.playBaa();
+                }
+                sheep.reset();
+            }
+        }
+
+        function triggerGameOver() {
+            sheep.tripped = true;
+            sheep.vx = 0;
+            sheep.vy = -3;
+            soundSystem.playFail();
+
+            document.getElementById('instruction-hint').classList.add('opacity-0');
+
+            setTimeout(() => {
+                document.getElementById('final-score').innerText = score;
+                const modal = document.getElementById('game-over-modal');
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                modal.querySelector('.id-modal-content').classList.remove('scale-95');
+                modal.querySelector('.id-modal-content').classList.add('scale-100');
+            }, 600);
+        }
+
+        function gameLoop() {
+            drawEnvironment();
+            sheep.update();
+            sheep.draw();
+
+            if (!sheep.tripped) {
+                checkCollision();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function handleUserAction(e) {
+            if (!gameStarted) return;
+            if (e && e.target.closest('button')) return;
+
+            soundSystem.init();
+
+            if (!sheep.tripped) {
+                const sheepFront = sheep.x + sheep.width;
+                const jumpZoneStart = fenceX - 260; 
+
+                if (!sheep.isJumping && sheepFront >= jumpZoneStart) {
+                    sheep.jump();
+                }
+
+                document.getElementById('instruction-hint').classList.add('opacity-0');
+            }
+        }
+
+        function startGame() {
+            soundSystem.init();
+            gameStarted = true;
+            
+            const welcomeModal = document.getElementById('welcome-modal');
+            welcomeModal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function restartGame() {
+            score = 0;
+            document.getElementById('sheep-counter').innerText = '0';
+            sheep.reset();
+
+            const modal = document.getElementById('game-over-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.id-modal-content').classList.remove('scale-100');
+            modal.querySelector('.id-modal-content').classList.add('scale-95');
+
+            document.getElementById('instruction-hint').classList.remove('opacity-0');
+        }
+
+        window.onload = () => {
+            resizeCanvas();
+            createBackgroundStars();
+            gameLoop();
+
+            // Start Welcome Button
+            document.getElementById('start-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                startGame();
+            });
+
+            // Global Click / Tap for Jumping
+            window.addEventListener('pointerdown', handleUserAction);
+
+            // Restart Button
+            document.getElementById('restart-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                restartGame();
+            });
+
+            // Mute / Unmute Toggle Button
+            const soundBtn = document.getElementById('sound-btn');
+            const soundIcon = document.getElementById('sound-icon');
+
+            soundBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                soundSystem.init();
+                soundSystem.muted = !soundSystem.muted;
+
+                if (soundSystem.muted) {
+                    soundIcon.className = 'fa-solid fa-volume-xmark text-slate-400';
+                } else {
+                    soundIcon.className = 'fa-solid fa-volume-high text-indigo-200';
+                    soundSystem.playSuccess();
+                }
+            });
+
+            // Info Modal Controls
+            const infoBtn = document.getElementById('info-btn');
+            const infoModal = document.getElementById('info-modal');
+            const closeInfoBtn = document.getElementById('close-info-btn');
+            const closeInfoBtn2 = document.getElementById('close-info-btn-2');
+
+            infoBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                infoModal.classList.remove('opacity-0', 'pointer-events-none');
+            });
+
+            const closeInfo = (e) => {
+                e.stopPropagation();
+                infoModal.classList.add('opacity-0', 'pointer-events-none');
+            };
+
+            closeInfoBtn.addEventListener('click', closeInfo);
+            closeInfoBtn2.addEventListener('click', closeInfo);
+        };
+    </script>
+</body>
+</html>
