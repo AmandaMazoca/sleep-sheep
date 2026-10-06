@@ -28,12 +28,6 @@
             50% { box-shadow: 0 0 45px rgba(254, 240, 138, 0.75); }
         }
 
-        @keyframes floatZZZ {
-            0% { opacity: 0; transform: translate(0, 0) scale(0.6) rotate(-10deg); }
-            50% { opacity: 0.9; }
-            100% { opacity: 0; transform: translate(30px, -80px) scale(1.3) rotate(15deg); }
-        }
-
         @keyframes floatStar {
             0% { opacity: 1; transform: translate(0, 0) scale(1); }
             100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
@@ -51,18 +45,10 @@
             animation: moonGlow 4s infinite ease-in-out;
         }
 
-        .zzz-particle {
-            position: absolute;
-            color: #e0e7ff;
-            font-weight: bold;
-            pointer-events: none;
-            animation: floatZZZ 2.5s forwards cubic-bezier(0.25, 1, 0.5, 1);
-        }
-
         .star-particle {
             position: absolute;
             pointer-events: none;
-            animation: floatStar 1s forwards cubic-bezier(0, 0, 0.2, 1);
+            animation: floatStar 0.8s forwards cubic-bezier(0, 0, 0.2, 1);
         }
     </style>
 </head>
@@ -182,7 +168,7 @@
                 </li>
                 <li class="flex items-start gap-3">
                     <span class="bg-indigo-600/30 text-indigo-300 w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">3</span>
-                    <span>Each successful jump adds +1 to your sheep count.</span>
+                    <span>Starting after sheep #5, the sheep will run slightly faster to test your timing!</span>
                 </li>
             </ul>
             <button id="close-info-btn-2" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all">
@@ -215,8 +201,8 @@
                     const gain = this.ctx.createGain();
                     
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(220, this.ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(440, this.ctx.currentTime + 0.28);
+                    osc.frequency.setValueAtTime(240, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(480, this.ctx.currentTime + 0.28);
 
                     gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
                     gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
@@ -240,36 +226,9 @@
                     osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.12);
 
                     gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.45);
-
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.45);
-                } catch(e) {}
-            }
-
-            playBaa() {
-                if (this.muted || !this.ctx) return;
-                try {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(280, this.ctx.currentTime);
-                    osc.frequency.linearRampToValueAtTime(260, this.ctx.currentTime + 0.15);
-                    osc.frequency.linearRampToValueAtTime(270, this.ctx.currentTime + 0.3);
-
-                    const filter = this.ctx.createBiquadFilter();
-                    filter.type = 'lowpass';
-                    filter.frequency.setValueAtTime(800, this.ctx.currentTime);
-
-                    gain.gain.setValueAtTime(0.07, this.ctx.currentTime);
                     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
 
-                    osc.connect(filter);
-                    filter.connect(gain);
+                    osc.connect(gain);
                     gain.connect(this.ctx.destination);
 
                     osc.start();
@@ -333,6 +292,8 @@
         const fenceHeight = 65;
 
         let sheep = null;
+        let score = 0;
+        let gameStarted = false;
 
         function resizeCanvas() {
             canvasWidth = gameArea.clientWidth;
@@ -343,14 +304,10 @@
             groundY = canvasHeight * 0.75;
             fenceX = canvasWidth * 0.5;
 
-            // Ensure sheep updates ground anchor immediately if instantiated
             if (sheep) {
                 sheep.updateGroundPosition();
             }
         }
-
-        let score = 0;
-        let gameStarted = false;
 
         class Sheep {
             constructor() {
@@ -359,9 +316,21 @@
                 this.reset();
             }
 
+            // Calculate exact speed based on current score (increases after sheep 5)
+            calculateCurrentSpeed() {
+                const baseSpeed = 2.2;
+                if (score <= 5) {
+                    return baseSpeed;
+                } else {
+                    // Gradual increase past sheep 5, up to a smooth comfortable max speed of 4.5
+                    const extraSpeed = (score - 5) * 0.25;
+                    return Math.min(baseSpeed + extraSpeed, 4.5);
+                }
+            }
+
             updateGroundPosition() {
-                this.baseY = groundY - this.height + 6;
-                // Keep sheep aligned to ground if not jumping
+                // Standing ground position (foot contact point matches groundY)
+                this.baseY = groundY - this.height;
                 if (!this.isJumping) {
                     this.y = this.baseY;
                 }
@@ -371,14 +340,13 @@
                 this.width = 54;
                 this.height = 38;
                 
-                // Spawn completely offscreen left
+                // Spawn offscreen left
                 this.x = -this.width - 60;
                 
-                // Calculate correct vertical position anchored to the green grass level
-                this.baseY = groundY ? (groundY - this.height + 6) : 0;
-                this.y = this.baseY;
-                
-                this.speed = 2.0; 
+                this.updateGroundPosition();
+
+                // Assign progressive speed
+                this.speed = this.calculateCurrentSpeed();
                 this.vx = this.speed;
                 this.vy = 0;
                 this.gravity = 0.32; // Floaty high jump
@@ -389,7 +357,7 @@
                 this.tripped = false;
 
                 this.legAngle = 0;
-                this.legSpeed = 0.2;
+                this.legSpeed = 0.18 + (this.speed * 0.03); // Leg animation scales with speed
                 this.eyeClosed = false;
                 this.blinkTimer = 0;
             }
@@ -398,7 +366,7 @@
                 if (!this.isJumping && !this.tripped) {
                     this.isJumping = true;
                     this.hasJumped = true;
-                    this.vy = -10.5; // High jump parabola
+                    this.vy = -10.5; // Smooth high parabolic jump
                     soundSystem.playJump();
                 }
             }
@@ -408,6 +376,7 @@
 
                 this.legAngle += this.legSpeed;
 
+                // Eye blinking
                 this.blinkTimer++;
                 if (this.blinkTimer > 180) {
                     this.eyeClosed = true;
@@ -428,16 +397,19 @@
                             addStarParticle(this.x + this.width / 2, this.y + 10);
                         }
 
+                        // Landing check
                         if (this.y >= this.baseY) {
                             this.y = this.baseY;
                             this.isJumping = false;
                             this.vy = 0;
 
-                            if (this.x > fenceX) {
+                            if (this.x > fenceX && !this.hasScored) {
                                 soundSystem.playSuccess();
-                                addZzzParticle(this.x + this.width / 2, this.y - 10);
                             }
                         }
+                    } else {
+                        // Ensure smooth alignment when walking on ground
+                        this.y = this.baseY;
                     }
                 } else {
                     if (this.y < this.baseY) {
@@ -451,8 +423,11 @@
             draw() {
                 ctx.save();
 
+                // Compute smooth walking body bobbing
+                const walkBob = (!this.isJumping && !this.tripped) ? Math.abs(Math.sin(this.legAngle)) * 2 : 0;
+                
                 const cx = this.x + this.width / 2;
-                const cy = this.y + this.height / 2;
+                const cy = (this.y - walkBob) + this.height / 2;
 
                 if (this.tripped) {
                     ctx.translate(cx, cy);
@@ -460,56 +435,62 @@
                     ctx.translate(-cx, -cy);
                 }
 
+                const renderY = this.y - walkBob;
+
                 // Ground Shadow
                 ctx.beginPath();
                 ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
-                const shadowWidth = this.isJumping ? this.width * 0.7 : this.width * 0.9;
-                ctx.ellipse(cx, groundY + 2, shadowWidth / 2, 6, 0, 0, Math.PI * 2);
+                const shadowWidth = this.isJumping ? this.width * 0.7 : this.width * 0.85;
+                ctx.ellipse(cx, groundY + 2, shadowWidth / 2, 5, 0, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Legs
+                // Legs - Leg tips align with groundY when walking
                 ctx.strokeStyle = '#334155';
                 ctx.lineWidth = 3.5;
                 ctx.lineCap = 'round';
 
-                const legOffset = Math.sin(this.legAngle) * (this.isJumping ? 2 : 6);
+                const legSwing = Math.sin(this.legAngle) * (this.isJumping ? 3 : 7);
 
                 ctx.beginPath();
-                ctx.moveTo(this.x + 14, this.y + 26);
-                ctx.lineTo(this.x + 14 - legOffset, this.y + 36);
-                ctx.moveTo(this.x + 22, this.y + 26);
-                ctx.lineTo(this.x + 22 + legOffset, this.y + 36);
-                ctx.moveTo(this.x + 36, this.y + 26);
-                ctx.lineTo(this.x + 36 - legOffset, this.y + 36);
-                ctx.moveTo(this.x + 44, this.y + 26);
-                ctx.lineTo(this.x + 44 + legOffset, this.y + 36);
+                // Front left leg
+                ctx.moveTo(this.x + 14, renderY + 28);
+                ctx.lineTo(this.x + 14 - legSwing, renderY + this.height);
+                // Front right leg
+                ctx.moveTo(this.x + 22, renderY + 28);
+                ctx.lineTo(this.x + 22 + legSwing, renderY + this.height);
+                // Back left leg
+                ctx.moveTo(this.x + 36, renderY + 28);
+                ctx.lineTo(this.x + 36 - legSwing, renderY + this.height);
+                // Back right leg
+                ctx.moveTo(this.x + 44, renderY + 28);
+                ctx.lineTo(this.x + 44 + legSwing, renderY + this.height);
                 ctx.stroke();
 
                 // Fluffy Body
                 ctx.fillStyle = '#f8fafc';
                 ctx.beginPath();
-                ctx.arc(this.x + 18, this.y + 18, 12, 0, Math.PI * 2);
-                ctx.arc(this.x + 28, this.y + 14, 14, 0, Math.PI * 2);
-                ctx.arc(this.x + 38, this.y + 18, 12, 0, Math.PI * 2);
-                ctx.arc(this.x + 28, this.y + 24, 12, 0, Math.PI * 2);
-                ctx.arc(this.x + 20, this.y + 22, 10, 0, Math.PI * 2);
+                ctx.arc(this.x + 18, renderY + 18, 12, 0, Math.PI * 2);
+                ctx.arc(this.x + 28, renderY + 14, 14, 0, Math.PI * 2);
+                ctx.arc(this.x + 38, renderY + 18, 12, 0, Math.PI * 2);
+                ctx.arc(this.x + 28, renderY + 24, 12, 0, Math.PI * 2);
+                ctx.arc(this.x + 20, renderY + 22, 10, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Fluff depth
+                // Fluff depth shadow
                 ctx.fillStyle = '#e2e8f0';
                 ctx.beginPath();
-                ctx.arc(this.x + 28, this.y + 24, 11, 0, Math.PI * 2);
+                ctx.arc(this.x + 28, renderY + 24, 11, 0, Math.PI * 2);
                 ctx.fill();
 
                 // Head
                 ctx.fillStyle = '#475569';
                 ctx.beginPath();
-                ctx.ellipse(this.x + 44, this.y + 16, 8, 10, Math.PI / 6, 0, Math.PI * 2);
+                ctx.ellipse(this.x + 44, renderY + 16, 8, 10, Math.PI / 6, 0, Math.PI * 2);
                 ctx.fill();
 
                 // Ear
                 ctx.beginPath();
-                ctx.ellipse(this.x + 40, this.y + 12, 3, 6, -Math.PI / 4, 0, Math.PI * 2);
+                ctx.ellipse(this.x + 40, renderY + 12, 3, 6, -Math.PI / 4, 0, Math.PI * 2);
                 ctx.fill();
 
                 // Eye
@@ -518,33 +499,22 @@
                     ctx.strokeStyle = '#ffffff';
                     ctx.lineWidth = 1.5;
                     ctx.beginPath();
-                    ctx.arc(this.x + 46, this.y + 15, 2.5, 0, Math.PI);
+                    ctx.arc(this.x + 46, renderY + 15, 2.5, 0, Math.PI);
                     ctx.stroke();
                 } else {
                     ctx.beginPath();
-                    ctx.arc(this.x + 46, this.y + 14, 2, 0, Math.PI * 2);
+                    ctx.arc(this.x + 46, renderY + 14, 2, 0, Math.PI * 2);
                     ctx.fill();
                 }
 
                 // Cheek
                 ctx.fillStyle = 'rgba(251, 113, 133, 0.4)';
                 ctx.beginPath();
-                ctx.arc(this.x + 45, this.y + 19, 2.5, 0, Math.PI * 2);
+                ctx.arc(this.x + 45, renderY + 19, 2.5, 0, Math.PI * 2);
                 ctx.fill();
 
                 ctx.restore();
             }
-        }
-
-        function addZzzParticle(x, y) {
-            const zzz = document.createElement('div');
-            zzz.className = 'zzz-particle';
-            zzz.innerText = 'zZz...';
-            zzz.style.left = `${x}px`;
-            zzz.style.top = `${y + gameArea.offsetTop}px`;
-            document.body.appendChild(zzz);
-
-            setTimeout(() => zzz.remove(), 2500);
         }
 
         function addStarParticle(x, y) {
@@ -554,13 +524,13 @@
             star.style.left = `${x}px`;
             star.style.top = `${y}px`;
             
-            const dx = (Math.random() - 0.5) * 40;
-            const dy = (Math.random() - 0.5) * 40;
+            const dx = (Math.random() - 0.5) * 30;
+            const dy = (Math.random() - 0.5) * 30;
             star.style.setProperty('--dx', `${dx}px`);
             star.style.setProperty('--dy', `${dy}px`);
 
             gameArea.appendChild(star);
-            setTimeout(() => star.remove(), 1000);
+            setTimeout(() => star.remove(), 800);
         }
 
         function drawEnvironment() {
@@ -606,7 +576,7 @@
             const fX = fenceX;
             const fY = groundY - fenceHeight + 15;
 
-            // Shadow
+            // Fence Shadow
             ctx.fillStyle = 'rgba(2, 44, 34, 0.5)';
             ctx.beginPath();
             ctx.ellipse(fX + fenceWidth / 2, groundY + 12, fenceWidth * 0.9, 5, 0, 0, Math.PI * 2);
@@ -642,7 +612,7 @@
             const sheepFront = sheep.x + sheep.width;
             const sheepBack = sheep.x;
 
-            // Missed jump collision check
+            // Collision with fence
             if (!sheep.isJumping && sheepFront >= fenceX + 5 && sheepBack <= fenceX + fenceWidth - 5) {
                 triggerGameOver();
                 return;
@@ -655,11 +625,8 @@
                 document.getElementById('sheep-counter').innerText = score;
             }
 
-            // Respawn offscreen on right exit
-            if (sheep.x > canvasWidth + 20) {
-                if (Math.random() < 0.4) {
-                    soundSystem.playBaa();
-                }
+            // Respawn offscreen left after clearing screen
+            if (sheep.x > canvasWidth + 30) {
                 sheep.reset();
             }
         }
@@ -703,7 +670,7 @@
 
             if (!sheep.tripped) {
                 const sheepFront = sheep.x + sheep.width;
-                const jumpZoneStart = fenceX - 260; // Very generous jump window
+                const jumpZoneStart = fenceX - 260; // Generous jump activation area
 
                 if (!sheep.isJumping && sheepFront >= jumpZoneStart) {
                     sheep.jump();
@@ -737,23 +704,22 @@
         }
 
         window.onload = () => {
-            // First measure canvas to establish groundY
             resizeCanvas();
             createBackgroundStars();
 
-            // Instantiate sheep AFTER groundY is established
+            // Instantiate sheep after groundY is calculated
             sheep = new Sheep();
 
-            // Start game loop
+            // Start loop
             gameLoop();
 
-            // Start Welcome Button
+            // Start Button
             document.getElementById('start-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 startGame();
             });
 
-            // Global Click / Tap for Jumping
+            // Tap/Click window event
             window.addEventListener('pointerdown', handleUserAction);
 
             // Restart Button
@@ -762,7 +728,7 @@
                 restartGame();
             });
 
-            // Mute / Unmute Toggle Button
+            // Audio button toggle
             const soundBtn = document.getElementById('sound-btn');
             const soundIcon = document.getElementById('sound-icon');
 
@@ -797,6 +763,10 @@
 
             closeInfoBtn.addEventListener('click', closeInfo);
             closeInfoBtn2.addEventListener('click', closeInfo);
+
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+            });
         };
     </script>
 </body>
